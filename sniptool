@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# sniptool 启动器：用仓库内 .venv 运行
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+PY="$ROOT/.venv/bin/python"
+
+# 当直接执行 ./sniptool 或 ./sniptool daemon 时，在后台守护进程运行，不占用终端
+if [ $# -eq 0 ] || [ "$1" = "daemon" ]; then
+    shift $(($# > 0 ? 1 : 0))
+    # 检查是否已在运行
+    if "$PY" -c "from sniptool.app import send_command; exit(0 if send_command('ping') else 1)" 2>/dev/null; then
+        echo "sniptool 已在后台运行"
+        exit 0
+    fi
+
+    # 使用 nohup + 后台运行，重定向输入输出，使进程脱离当前终端
+    nohup "$PY" -m sniptool daemon "$@" >/dev/null 2>&1 &
+    PID=$!
+    echo "sniptool 已在后台启动 (PID: $PID)"
+    exit 0
+fi
+
+# 其他子命令（如 capture, clipboard, settings, quit, --diagnose 等）前台执行
+exec "$PY" -m sniptool "$@"
